@@ -8,6 +8,23 @@ The project was built from the ideas and local-first foundations of [ornab74/naz
 
 Canonical repository: [github.com/ornab74/thought-circle](https://github.com/ornab74/thought-circle)
 
+## V1 release
+
+[Download Thought Circle v1](https://github.com/ornab74/thought-circle/releases/tag/v1)
+
+V1 includes:
+
+- Local-first thought circle and private journal
+- On-device Gemma guide with reflection, support, and next-step chat
+- Markdown guide replies with rolling conversation context
+- Voice journaling and daily summaries
+- Mood Colorizer with visual history
+- Starter plans and actionable anti-looping chains
+- Android, iOS, Linux, macOS, and Windows support
+- No account, ads, analytics, or cloud chat backend
+
+Read the complete [V1 release notes](RELEASE-v1.md).
+
 ## Demo gallery
 
 The screenshots in [demo-pics/](demo-pics/) are numbered in capture order. Together they show the main flow from local guide chat, through loop details and planning, to journaling and Mood Colors.
