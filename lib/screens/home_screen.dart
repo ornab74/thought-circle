@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
+import '../services/gemma_service.dart';
 import 'circle_page.dart';
 import 'guide_page.dart';
 import 'journal_page.dart';
@@ -18,6 +19,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await widget.controller.initializeModel();
+        if (widget.controller.gemma.state == LocalAiState.readyToLoad) {
+          await widget.controller.loadModel();
+        }
+      } catch (_) {
+        // Local AI remains optional; the rest of the app stays available.
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

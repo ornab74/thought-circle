@@ -293,105 +293,27 @@ class _PlanTabs extends StatefulWidget {
 }
 
 class _PlanTabsState extends State<_PlanTabs> {
-  int _tab = 0;
-
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: ThoughtCircleColors.line),
-          ),
-          child: Row(
-            children: <Widget>[
-              _TabButton(
-                label: 'Understanding',
-                selected: _tab == 0,
-                onTap: () => setState(() => _tab = 0),
-              ),
-              _TabButton(
-                label: 'Support',
-                selected: _tab == 1,
-                onTap: () => setState(() => _tab = 1),
-              ),
-              _TabButton(
-                label: 'Actions',
-                selected: _tab == 2,
-                onTap: () => setState(() => _tab = 2),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          child: switch (_tab) {
-            0 => _Understanding(key: const ValueKey(0), plan: widget.plan),
-            1 => _Support(
-              key: const ValueKey(1),
-              controller: widget.controller,
-              plan: widget.plan,
-            ),
-            _ => _Actions(
-              key: const ValueKey(2),
-              controller: widget.controller,
-              thought: widget.thought,
-              plan: widget.plan,
-            ),
-          },
+        _Understanding(plan: widget.plan),
+        const SizedBox(height: 12),
+        _Support(controller: widget.controller, plan: widget.plan),
+        const SizedBox(height: 12),
+        _Actions(
+          controller: widget.controller,
+          thought: widget.thought,
+          plan: widget.plan,
         ),
       ],
     );
   }
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
-          decoration: BoxDecoration(
-            color: selected ? ThoughtCircleColors.lavender : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: selected
-                  ? ThoughtCircleColors.purple
-                  : ThoughtCircleColors.muted,
-              fontSize: 11,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _Understanding extends StatelessWidget {
-  const _Understanding({super.key, required this.plan});
+  const _Understanding({required this.plan});
 
   final ThoughtPlan plan;
 
@@ -418,7 +340,7 @@ class _Understanding extends StatelessWidget {
 }
 
 class _Support extends StatelessWidget {
-  const _Support({super.key, required this.controller, required this.plan});
+  const _Support({required this.controller, required this.plan});
 
   final AppController controller;
   final ThoughtPlan plan;
@@ -465,7 +387,6 @@ class _Support extends StatelessWidget {
 
 class _Actions extends StatelessWidget {
   const _Actions({
-    super.key,
     required this.controller,
     required this.thought,
     required this.plan,

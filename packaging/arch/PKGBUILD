@@ -1,0 +1,17 @@
+pkgname=thought-circle-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='A calm Flutter app for turning looping thoughts into small next steps'
+arch=('x86_64')
+url='https://github.com/ornab74/thought-circle'
+license=('custom')
+depends=('gtk3' 'libsecret')
+source=("thought-circle-${pkgver}-linux-x64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  install -dm755 "$pkgdir/opt/thought-circle" "$pkgdir/usr/bin" "$pkgdir/usr/share/applications"
+  cp -a "$srcdir/bundle/." "$pkgdir/opt/thought-circle/"
+  ln -s /opt/thought-circle/thought_circle "$pkgdir/usr/bin/thought-circle"
+  install -Dm644 "$srcdir/../linux/thought-circle.desktop" "$pkgdir/usr/share/applications/thought-circle.desktop"
+}

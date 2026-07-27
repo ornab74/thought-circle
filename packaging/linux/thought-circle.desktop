@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Thought Circle
+Comment=Turn looping thoughts into small next steps
+Exec=thought_circle
+Terminal=false
+Type=Application
+Categories=Utility;GTK;

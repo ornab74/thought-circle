@@ -91,6 +91,8 @@ class _GuidePageState extends State<GuidePage> {
                       'Talk it out.',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
+                    const SizedBox(height: 8),
+                    _GuideStatus(controller: controller),
                     const SizedBox(height: 12),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -241,6 +243,100 @@ class _Conversation extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _GuideStatus extends StatelessWidget {
+  const _GuideStatus({required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = controller.gemma.isBusy;
+    final ready = controller.gemma.isReady;
+    final color = active
+        ? ThoughtCircleColors.orange
+        : ready
+        ? ThoughtCircleColors.purple
+        : ThoughtCircleColors.muted;
+    return Row(
+      children: <Widget>[
+        _BreathingDot(color: color, active: active),
+        const SizedBox(width: 8),
+        Text(
+          active
+              ? 'Working quietly…'
+              : ready
+              ? 'Ready when you are'
+              : 'Guide is optional',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _BreathingDot extends StatefulWidget {
+  const _BreathingDot({required this.color, required this.active});
+
+  final Color color;
+  final bool active;
+
+  @override
+  State<_BreathingDot> createState() => _BreathingDotState();
+}
+
+class _BreathingDotState extends State<_BreathingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _animation.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _BreathingDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      _animation.repeat(reverse: true);
+    } else if (!widget.active && oldWidget.active) {
+      _animation.stop();
+      _animation.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (_, _) => Container(
+        width: 12 + (widget.active ? _animation.value * 5 : 0),
+        height: 12 + (widget.active ? _animation.value * 5 : 0),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color.withValues(alpha: 0.18 + _animation.value * 0.18),
+          border: Border.all(color: widget.color, width: 2),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.24),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -412,7 +508,10 @@ class _GuideSetup extends StatelessWidget {
             children: <Widget>[
               const ThoughtCircleMark(size: 46),
               const SizedBox(height: 16),
-              Text('Add Gemma', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Add your local guide',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 6),
               Text(gemma.status, style: Theme.of(context).textTheme.bodyMedium),
               if (gemma.installProgress != null) ...<Widget>[
@@ -446,10 +545,10 @@ class _GuideSetup extends StatelessWidget {
                 ),
                 label: Text(
                   gemma.state == LocalAiState.readyToLoad
-                      ? 'Start Gemma'
+                      ? 'Start local guide'
                       : gemma.canResume
                       ? 'Resume download'
-                      : 'Download Gemma',
+                      : 'Add local guide',
                 ),
               ),
               if (gemma.canPause) ...<Widget>[

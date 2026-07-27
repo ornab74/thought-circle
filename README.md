@@ -683,3 +683,53 @@ The user-facing copy avoids technical and clinical language. The visual system i
 ## License and notices
 
 Thought Circle's project notice is in [NOTICE.md](NOTICE.md). The bundled Manrope and Newsreader typefaces are distributed under the SIL Open Font License 1.1; their license texts are included in [assets/fonts/](assets/fonts/).
+
+## GitHub Actions builds and signing
+
+The workflow in [.github/workflows/flutter.yml](.github/workflows/flutter.yml) builds Android, Linux, Windows, macOS, and iOS on pushes to `main`, version tags, pull requests, and manual runs. It always produces unsigned/testable binaries. Release signing is opt-in: add the relevant secrets and run a `v*` tag or choose **Run workflow**. Pull requests never receive signing credentials.
+
+### Android signing and Play Store
+
+Create an upload key on Windows with JDK 17. Install Temurin if necessary:
+
+```powershell
+winget install EclipseAdoptium.Temurin.17.JDK
+keytool -genkeypair -v -keystore thought-circle-upload.jks -alias thought-circle-upload -keyalg RSA -keysize 2048 -validity 10000
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('.\\thought-circle-upload.jks')) | Set-Clipboard
+```
+
+In GitHub, create a protected `production` environment and add `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Keep the JKS and passwords offline; never commit them. The workflow writes a temporary `android/key.properties`, signs the AAB/APK, and removes it with the runner.
+
+Create a Google Play Console developer account, create the app using package ID `com.thoughtcircle.thought_circle`, enroll in Play App Signing, and upload the AAB from the Actions artifact. For automated upload, create a Google Cloud service account, grant it Play Console release access, download its JSON key, and save the complete JSON as `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. Store upload permission only in the production environment.
+
+### Apple macOS and iOS
+
+Apple desktop signing needs an Apple Developer team, a Developer ID Application certificate, and notarization credentials. Add `MACOS_CERTIFICATE_P12_B64`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_CODESIGN_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` as production secrets. The macOS job can then sign the `.app`, create a DMG, submit it with `xcrun notarytool`, and staple the result.
+
+For iOS, register the bundle ID in Apple Developer, create an App Store distribution certificate and App Store provisioning profile, then add `IOS_CERTIFICATE_P12_B64`, `IOS_CERTIFICATE_PASSWORD`, `IOS_PROVISIONING_PROFILE_B64`, and `IOS_EXPORT_OPTIONS_PLIST_B64`. The iOS artifact is an IPA only after those secrets and a matching Xcode signing setup are supplied. Upload it with Transporter or App Store Connect.
+
+### Windows Store
+
+Enroll in Microsoft Partner Center, reserve the Thought Circle name, and copy the Product Identity values into the project’s MSIX manifest. For Store builds, add the publisher identity and certificate secrets required by your organization, then add an MSIX packaging step to the Windows job. Upload the generated MSIX in Partner Center, complete age-rating and privacy forms, and submit it for certification. Store-managed signing is preferable for Store distribution; a PFX is needed for direct sideload distribution.
+
+### Linux packages and Ubuntu Store
+
+The Linux artifact is a Flutter bundle. A Debian package can be made on Ubuntu with:
+
+```bash
+sudo apt-get install -y dpkg-dev
+mkdir -p pkg/DEBIAN pkg/opt/thought-circle pkg/usr/bin pkg/usr/share/applications
+cp -a build/linux/x64/release/bundle/. pkg/opt/thought-circle/
+printf '#!/bin/sh\nexec /opt/thought-circle/thought_circle "$@"\n' > pkg/usr/bin/thought-circle
+chmod 755 pkg/usr/bin/thought-circle
+cp packaging/linux/thought-circle.desktop pkg/usr/share/applications/
+dpkg-deb --build pkg thought-circle_0.1.0_amd64.deb
+```
+
+For Fedora, install `rpm-build`, stage the same bundle under `/opt/thought-circle`, and build an RPM with `rpmbuild -bb` using a spec that installs the executable, desktop file, and GTK runtime dependencies. For Arch, update `packaging/arch/PKGBUILD`, place the release tarball beside it, and run `makepkg -si`. AUR does not use a `.aur` file: it is a Git repository containing a `PKGBUILD`; push that recipe to a user-owned AUR repository after testing it locally.
+
+Ubuntu’s app marketplace is the Snap Store rather than an apt repository. Install Snapcraft, reserve the snap name at [snapcraft.io](https://snapcraft.io/), run `snapcraft login`, build with `snapcraft pack`, and upload with `snapcraft upload --release=stable thought-circle_*.snap`. For CI, export store credentials with `snapcraft export-login`, save the output as the protected `SNAPCRAFT_STORE_CREDENTIALS` secret, and pass it only to a tag/manual release job. Snap Store signing is handled by the store.
+
+### Secret safety
+
+Use GitHub Actions environments with required reviewers for production releases. Limit workflow permissions to `contents: read`, use short-lived cloud credentials where supported, rotate compromised keys immediately, and inspect the Actions log to ensure no decoded key or password is printed. GitHub’s encrypted secrets are available to release jobs, not forked pull requests.

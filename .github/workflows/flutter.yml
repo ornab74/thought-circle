@@ -1,30 +1,156 @@
-name: Flutter checks
+name: Build Thought Circle
 
 on:
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.44.7"
+  JAVA_VERSION: "17"
+  IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
 
 jobs:
-  analyze-and-test:
-    runs-on: ubuntu-latest
+  analyze:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-      - name: Add temporary platform scaffold
-        run: |
-          scratch="$(mktemp -d)"
-          flutter create \
-            --project-name thought_circle \
-            --org com.thoughtcircle \
-            --platforms=android,linux \
-            "$scratch/scaffold"
-          cp -R "$scratch/scaffold/android" .
-          cp -R "$scratch/scaffold/linux" .
-          cp "$scratch/scaffold/.metadata" .
-      - run: dart run tool/configure_platforms.dart
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+
+  android:
+    runs-on: ubuntu-24.04
+    env:
+      ANDROID_SIGNING_CONFIGURED: ${{ secrets.ANDROID_KEYSTORE_B64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - name: Restore Android signing key when configured
+        if: env.IS_RELEASE == 'true' && env.ANDROID_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storeFile=app/upload-keystore.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          chmod 600 android/key.properties android/app/upload-keystore.jks
+      - name: Build APK and AAB (signed when secrets are present)
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-builds
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux build tools
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Archive Linux bundle
+        run: tar -C build/linux/x64/release -czf thought-circle-linux-x64.tar.gz bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: thought-circle-linux-x64.tar.gz
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Archive Windows bundle
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath thought-circle-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: thought-circle-windows-x64.zip
+
+  apple:
+    runs-on: macos-15
+    env:
+      MACOS_SIGNING_CONFIGURED: ${{ secrets.MACOS_CERTIFICATE_P12_B64 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.MACOS_CODESIGN_IDENTITY != '' }}
+    strategy:
+      matrix:
+        target: [macos, ios]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - name: Build macOS app and DMG
+        if: matrix.target == 'macos'
+        run: |
+          flutter build macos --release
+          hdiutil create -volname "Thought Circle" -srcfolder build/macos/Build/Products/Release/thought_circle.app -ov -format UDZO thought-circle-macos.dmg
+      - name: Sign macOS app and DMG when configured
+        if: matrix.target == 'macos' && env.MACOS_SIGNING_CONFIGURED == 'true'
+        env:
+          CERTIFICATE_B64: ${{ secrets.MACOS_CERTIFICATE_P12_B64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+        run: |
+          keychain="$RUNNER_TEMP/thought-circle-signing.keychain-db"
+          security create-keychain -p "runner" "$keychain"
+          security unlock-keychain -p "runner" "$keychain"
+          security import <(echo "$CERTIFICATE_B64" | base64 --decode) -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "runner" "$keychain"
+          codesign --deep --force --options runtime --timestamp --sign "$CODESIGN_IDENTITY" build/macos/Build/Products/Release/thought_circle.app
+          rm -f thought-circle-macos.dmg
+          hdiutil create -volname "Thought Circle" -srcfolder build/macos/Build/Products/Release/thought_circle.app -ov -format UDZO thought-circle-macos.dmg
+      - name: Build unsigned iOS archive
+        if: matrix.target == 'ios'
+        run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}-build
+          path: |
+            thought-circle-macos.dmg
+            build/macos/Build/Products/Release/thought_circle.app
+            build/ios/iphoneos/Runner.app
+          if-no-files-found: warn
