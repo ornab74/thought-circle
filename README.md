@@ -6,6 +6,8 @@ The app combines a visual thought orbit, short reflection plans, a local Gemma g
 
 The project was built from the ideas and local-first foundations of [ornab74/naza_one_generation_ui_code](https://github.com/ornab74/naza_one_generation_ui_code), with a new interface and implementation for Thought Circle.
 
+Canonical repository: [github.com/ornab74/thought-circle](https://github.com/ornab74/thought-circle)
+
 ## Demo gallery
 
 The screenshots in [demo-pics/](demo-pics/) are numbered in capture order. Together they show the main flow from local guide chat, through loop details and planning, to journaling and Mood Colors.
@@ -359,17 +361,17 @@ Flutter should list a macOS desktop device.
 
 ## Get the project ready
 
-Clone the repository or enter an existing checkout:
+Clone the repository:
 
 ~~~bash
-git clone <repository-url> thought-circle
+git clone https://github.com/ornab74/thought-circle.git
 cd thought-circle
 ~~~
 
-For an existing checkout:
+If the repository is already cloned, enter its directory. Replace the path below if you chose a different checkout location:
 
 ~~~bash
-cd /home/user/thought-circle
+cd /path/to/thought-circle
 ~~~
 
 Fetch packages:
