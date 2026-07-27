@@ -8,7 +8,7 @@ The project was built from the ideas and local-first foundations of [ornab74/naz
 
 ## Demo gallery
 
-The screenshots in [demo-pics/](demo-pics/) are numbered in capture order. Together they show the main flow from local guide chat, through loop details and planning, to journaling.
+The screenshots in [demo-pics/](demo-pics/) are numbered in capture order. Together they show the main flow from local guide chat, through loop details and planning, to journaling and Mood Colors.
 
 ### 01 — Guide chat
 
@@ -51,6 +51,12 @@ When a loop has no plan yet, the app offers a quick starter plan or a Gemma-buil
 ![Thought Circle journal](demo-pics/07.png)
 
 The Journal screen starts with Write and Speak capture choices. Below are the day's review and recent summarized notes, including mood markers and links back to circle thoughts.
+
+### 08 — Mood Colorizer
+
+![Thought Circle Mood Colorizer](demo-pics/08.png)
+
+Mood Colors lets someone choose a color with the visual wheel or a quick preset, adjust the day's energy, and add a short note. The same screen shows the past-color graph and recent saved colors, making changes easy to notice over time.
 
 ## What is included
 
