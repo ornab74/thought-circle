@@ -131,7 +131,27 @@ class _GuidePageState extends State<GuidePage> {
                         scrollController: _scroll,
                         onSuggestion: _send,
                       )
-                    : _GuideSetup(controller: controller, show: _show),
+                    : Column(
+                        children: <Widget>[
+                          Flexible(
+                            flex: 0,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 255),
+                              child: _GuideSetup(
+                                controller: controller,
+                                show: _show,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: _Conversation(
+                              controller: controller,
+                              scrollController: _scroll,
+                              onSuggestion: _send,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
               if (controller.gemma.hasLoadedModel)
                 _Composer(
