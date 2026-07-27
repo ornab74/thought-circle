@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/app_controller.dart';
 import '../services/gemma_service.dart';
 import 'circle_page.dart';
+import '../widgets/soft_card.dart';
 import 'guide_page.dart';
 import 'journal_page.dart';
 import 'mood_colors_page.dart';
@@ -38,18 +39,24 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
+      body: Stack(
         children: <Widget>[
-          CirclePage(
-            controller: widget.controller,
-            onOpenGuide: () => setState(() => _index = 3),
-            onOpenJournal: () => setState(() => _index = 2),
+          IndexedStack(
+            index: _index,
+            children: <Widget>[
+              CirclePage(
+                controller: widget.controller,
+                onOpenGuide: () => setState(() => _index = 3),
+                onOpenJournal: () => setState(() => _index = 2),
+              ),
+              MoodColorsPage(controller: widget.controller),
+              JournalPage(controller: widget.controller),
+              GuidePage(controller: widget.controller),
+              SettingsPage(controller: widget.controller),
+            ],
           ),
-          MoodColorsPage(controller: widget.controller),
-          JournalPage(controller: widget.controller),
-          GuidePage(controller: widget.controller),
-          SettingsPage(controller: widget.controller),
+          if (widget.controller.gemma.state == LocalAiState.loading)
+            const _ModelBootOverlay(),
         ],
       ),
       bottomNavigationBar: DecoratedBox(
@@ -82,6 +89,41 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(icon: Icon(Icons.tune_rounded), label: 'You'),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelBootOverlay extends StatelessWidget {
+  const _ModelBootOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.white.withValues(alpha: 0.94),
+      child: Center(
+        child: SoftCard(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const ThoughtCircleMark(size: 66),
+              const SizedBox(height: 18),
+              Text(
+                'Opening your local guide',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'A quick on-device check, then you are ready.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              const SizedBox(width: 150, child: LinearProgressIndicator()),
+            ],
+          ),
         ),
       ),
     );

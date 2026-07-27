@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../app/theme.dart';
@@ -153,12 +156,11 @@ class _GuidePageState extends State<GuidePage> {
                         ],
                       ),
               ),
-              if (controller.gemma.hasLoadedModel)
-                _Composer(
-                  controller: controller,
-                  textController: _message,
-                  onSend: _send,
-                ),
+              _Composer(
+                controller: controller,
+                textController: _message,
+                onSend: _send,
+              ),
             ],
           ),
         ),
@@ -229,6 +231,30 @@ class _Conversation extends StatelessWidget {
       itemCount: controller.guideTurns.length + (controller.guideBusy ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == controller.guideTurns.length) {
+          if (controller.guideStreamingText.isNotEmpty) {
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 520),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                    bottomLeft: Radius.circular(5),
+                  ),
+                  border: Border.all(color: ThoughtCircleColors.line),
+                ),
+                child: _GuideMarkdown(data: controller.guideStreamingText),
+              ),
+            );
+          }
           return const Align(
             alignment: Alignment.centerLeft,
             child: _ThinkingBubble(),
@@ -294,6 +320,101 @@ class _GuideStatus extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
         ),
       ],
+    );
+  }
+}
+
+class _GuideOrb extends StatefulWidget {
+  const _GuideOrb({required this.active});
+
+  final bool active;
+
+  @override
+  State<_GuideOrb> createState() => _GuideOrbState();
+}
+
+class _GuideOrbState extends State<_GuideOrb>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GuideOrb oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      _controller.repeat();
+    } else if (!widget.active && oldWidget.active) {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, _) {
+        final phase = _controller.value * math.pi * 2;
+        final scale = widget.active
+            ? 0.92 + (math.sin(phase) + 1) * 0.06
+            : 0.92;
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: SweepGradient(
+                transform: GradientRotation(phase),
+                colors: const <Color>[
+                  ThoughtCircleColors.orange,
+                  ThoughtCircleColors.pink,
+                  ThoughtCircleColors.purple,
+                  ThoughtCircleColors.orange,
+                ],
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: ThoughtCircleColors.purple.withValues(alpha: 0.28),
+                  blurRadius: widget.active ? 16 : 8,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                child: Icon(
+                  widget.active
+                      ? Icons.auto_awesome_rounded
+                      : Icons.circle_outlined,
+                  size: 16,
+                  color: ThoughtCircleColors.purple,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -397,7 +518,7 @@ class _GuideMarkdown extends StatelessWidget {
       color: ThoughtCircleColors.ink,
     );
     return MarkdownBody(
-      data: data,
+      data: data.replaceAll('\r\n', '\n').replaceAll(r'\n', '\n'),
       selectable: true,
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
@@ -464,36 +585,67 @@ class _Composer extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
+              _GuideOrb(active: controller.guideBusy),
+              const SizedBox(width: 9),
               Expanded(
-                child: TextField(
-                  controller: textController,
-                  enabled: controller.gemma.isReady && !controller.guideBusy,
-                  minLines: 1,
-                  maxLines: 4,
-                  textCapitalization: TextCapitalization.sentences,
-                  onSubmitted: (_) {
-                    if (controller.gemma.isReady && !controller.guideBusy) {
-                      onSend();
+                child: Focus(
+                  onKeyEvent: (_, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.enter &&
+                        !HardwareKeyboard.instance.isShiftPressed) {
+                      if (controller.gemma.isReady && !controller.guideBusy) {
+                        onSend();
+                      }
+                      return KeyEventResult.handled;
                     }
+                    return KeyEventResult.ignored;
                   },
-                  decoration: const InputDecoration(
-                    hintText: 'Message…',
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 17,
-                      vertical: 13,
+                  child: TextField(
+                    controller: textController,
+                    enabled: controller.gemma.isReady,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.send,
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (_) {
+                      if (controller.gemma.isReady && !controller.guideBusy) {
+                        onSend();
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      hintText: 'Message…',
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 17,
+                        vertical: 13,
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 9),
-              IconButton.filled(
-                onPressed: controller.guideBusy || !controller.gemma.isReady
-                    ? null
-                    : onSend,
-                icon: const Icon(Icons.arrow_upward_rounded),
-              ),
+              controller.guideBusy
+                  ? IconButton.filledTonal(
+                      tooltip: 'Stop guide',
+                      onPressed: controller.stopGuideChat,
+                      icon: const Icon(Icons.stop_rounded),
+                    )
+                  : IconButton.filled(
+                      onPressed: !controller.gemma.isReady ? null : onSend,
+                      icon: const Icon(Icons.arrow_upward_rounded),
+                    ),
             ],
           ),
+          if (controller.guideBusy)
+            Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(
+                'The guide is thinking · tap stop anytime',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ThoughtCircleColors.muted,
+                  fontSize: 10,
+                ),
+              ),
+            ),
           if (controller.guideContextTokens > 0) ...<Widget>[
             const SizedBox(height: 5),
             Text(

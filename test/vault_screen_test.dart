@@ -5,14 +5,16 @@ import 'package:thought_circle/services/vault_service.dart';
 import 'package:thought_circle/state/app_controller.dart';
 
 void main() {
-  testWidgets('setup password fields accept focus by keyboard and click', (
-    tester,
-  ) async {
+  testWidgets('first boot leads to optional password setup', (tester) async {
     final controller = AppController()..vaultAccess = VaultAccess.setupRequired;
 
     await tester.pumpWidget(
       MaterialApp(home: VaultScreen(controller: controller)),
     );
+    await tester.pump();
+
+    expect(find.text('Welcome to Thought Circle'), findsOneWidget);
+    await tester.tap(find.text('Set up my circle'));
     await tester.pump();
 
     final fields = find.byType(EditableText);

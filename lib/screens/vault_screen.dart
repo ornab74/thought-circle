@@ -20,6 +20,8 @@ class _VaultScreenState extends State<VaultScreen> {
   final _passwordFocus = FocusNode(debugLabel: 'vault-password');
   final _confirmFocus = FocusNode(debugLabel: 'vault-password-confirmation');
   bool _obscure = true;
+  bool _showPasswordStep = false;
+  bool _usePassword = true;
 
   bool get _isSetup =>
       widget.controller.vaultAccess == VaultAccess.setupRequired;
@@ -67,6 +69,9 @@ class _VaultScreenState extends State<VaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isSetup && !_showPasswordStep) {
+      return _buildWelcome(context);
+    }
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -112,38 +117,54 @@ class _VaultScreenState extends State<VaultScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        TextField(
-                          controller: _password,
-                          focusNode: _passwordFocus,
-                          obscureText: _obscure,
-                          autofocus: true,
-                          textInputAction: _isSetup
-                              ? TextInputAction.next
-                              : TextInputAction.done,
-                          onSubmitted: (_) {
-                            if (_isSetup) {
-                              _confirmFocus.requestFocus();
-                            } else {
-                              _submit();
-                            }
-                          },
-                          decoration: InputDecoration(
-                            labelText: _isSetup
-                                ? 'Create password'
-                                : 'Password',
-                            prefixIcon: const Icon(Icons.lock_outline_rounded),
-                            suffixIcon: IconButton(
-                              onPressed: () =>
-                                  setState(() => _obscure = !_obscure),
-                              icon: Icon(
-                                _obscure
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                        if (_isSetup)
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: _usePassword,
+                            onChanged: (value) =>
+                                setState(() => _usePassword = value),
+                            title: const Text('Use a startup password'),
+                            subtitle: Text(
+                              _usePassword
+                                  ? 'Recommended for a private space.'
+                                  : 'Anyone with access to this device can open it.',
+                            ),
+                          ),
+                        if (!_isSetup || _usePassword)
+                          TextField(
+                            controller: _password,
+                            focusNode: _passwordFocus,
+                            obscureText: _obscure,
+                            autofocus: true,
+                            textInputAction: _isSetup
+                                ? TextInputAction.next
+                                : TextInputAction.done,
+                            onSubmitted: (_) {
+                              if (_isSetup) {
+                                _confirmFocus.requestFocus();
+                              } else {
+                                _submit();
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: _isSetup
+                                  ? 'Create password'
+                                  : 'Password',
+                              prefixIcon: const Icon(
+                                Icons.lock_outline_rounded,
+                              ),
+                              suffixIcon: IconButton(
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        if (_isSetup) ...<Widget>[
+                        if (_isSetup && _usePassword) ...<Widget>[
                           const SizedBox(height: 14),
                           TextField(
                             controller: _confirm,
@@ -205,6 +226,90 @@ class _VaultScreenState extends State<VaultScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWelcome(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 620),
+              child: SoftCard(
+                padding: const EdgeInsets.all(28),
+                color: const Color(0xFFF7F4FF),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const ThoughtCircleMark(size: 64),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Welcome to Thought Circle',
+                      style: Theme.of(context).textTheme.displaySmall,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'A quiet place to name what is on your mind, see patterns, and choose one useful next step.',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 22),
+                    const _WelcomePoint(
+                      icon: Icons.circle_outlined,
+                      text:
+                          'Capture thoughts, journals, and moods in one simple space.',
+                    ),
+                    const _WelcomePoint(
+                      icon: Icons.auto_awesome_outlined,
+                      text:
+                          'Use the optional local guide when you want another perspective.',
+                    ),
+                    const _WelcomePoint(
+                      icon: Icons.lock_outline_rounded,
+                      text: 'Your circle stays on this device.',
+                    ),
+                    const SizedBox(height: 26),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            setState(() => _showPasswordStep = true),
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        label: const Text('Set up my circle'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WelcomePoint extends StatelessWidget {
+  const _WelcomePoint({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, color: ThoughtCircleColors.purple),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
       ),
     );
   }

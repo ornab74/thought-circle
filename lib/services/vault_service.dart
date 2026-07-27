@@ -571,7 +571,7 @@ CREATE TABLE IF NOT EXISTS vault_records(
 
   void _validateNewPassword(String password) {
     final length = password.runes.length;
-    if (length < 12) {
+    if (length != 0 && length < 12) {
       throw const VaultException(
         'weak_password',
         'Use at least 12 characters for the app password.',

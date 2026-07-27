@@ -30,8 +30,10 @@ final class AppController extends ChangeNotifier {
   bool busy = false;
   bool journalBusy = false;
   bool guideBusy = false;
+  String guideStreamingText = '';
   bool modelInitialized = false;
   String? message;
+  Map<String, Object?>? localModelMetadata;
 
   List<Thought> get activeThoughts => thoughts
       .where((thought) => thought.state == ThoughtState.active)
@@ -112,6 +114,7 @@ final class AppController extends ChangeNotifier {
       journalEntries = await repository.loadJournal();
       guideTurns = await repository.loadChat();
       moodColors = await repository.loadMoodColors();
+      localModelMetadata = await repository.loadModelMetadata();
       onboardingComplete = await repository.loadOnboardingComplete();
     });
   }
@@ -367,6 +370,7 @@ final class AppController extends ChangeNotifier {
     guideTurns = <ChatTurn>[...guideTurns, userTurn];
     await repository.saveChat(guideTurns);
     guideBusy = true;
+    guideStreamingText = '';
     message = null;
     notifyListeners();
     try {
@@ -381,6 +385,10 @@ final class AppController extends ChangeNotifier {
         mode: mode,
         circle: thoughts,
         moodColors: moodColors,
+        onToken: (token) {
+          guideStreamingText += token;
+          notifyListeners();
+        },
       );
       guideTurns = <ChatTurn>[
         ...guideTurns,
@@ -397,6 +405,7 @@ final class AppController extends ChangeNotifier {
       rethrow;
     } finally {
       guideBusy = false;
+      guideStreamingText = '';
       notifyListeners();
     }
   }
@@ -404,6 +413,14 @@ final class AppController extends ChangeNotifier {
   Future<void> clearGuideChat() async {
     guideTurns = const <ChatTurn>[];
     await repository.saveChat(guideTurns);
+    notifyListeners();
+  }
+
+  Future<void> stopGuideChat() async {
+    if (!guideBusy) return;
+    await gemma.cancelCurrentGeneration();
+    guideBusy = false;
+    message = null;
     notifyListeners();
   }
 
@@ -464,6 +481,16 @@ final class AppController extends ChangeNotifier {
       await gemma.downloadAndInstall(onProgress: notifyListeners);
       if (gemma.state != LocalAiState.paused) {
         message = 'Gemma is downloaded.';
+        final path = await gemma.installedModelPath;
+        localModelMetadata = <String, Object?>{
+          'path': path,
+          'sha256': GemmaService.modelSha256,
+          'verifiedAt': DateTime.now().toUtc().toIso8601String(),
+        };
+        await repository.saveModelMetadata(
+          path: path,
+          sha256: GemmaService.modelSha256,
+        );
       }
     } catch (exception) {
       message = _friendlyError(exception);

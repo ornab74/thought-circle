@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../app/theme.dart';
 import '../models/thought.dart';
 
-class ThoughtOrbit extends StatelessWidget {
+class ThoughtOrbit extends StatefulWidget {
   const ThoughtOrbit({
     super.key,
     required this.thoughts,
@@ -16,8 +16,15 @@ class ThoughtOrbit extends StatelessWidget {
   final ValueChanged<Thought> onThoughtTap;
 
   @override
+  State<ThoughtOrbit> createState() => _ThoughtOrbitState();
+}
+
+class _ThoughtOrbitState extends State<ThoughtOrbit> {
+  String? _expandedId;
+
+  @override
   Widget build(BuildContext context) {
-    final visible = thoughts.take(5).toList(growable: false);
+    final visible = widget.thoughts;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -33,7 +40,7 @@ class ThoughtOrbit extends StatelessWidget {
               Positioned.fill(child: CustomPaint(painter: _OrbitPainter())),
               Align(
                 alignment: const Alignment(0, 0.06),
-                child: _OrbitCenter(count: thoughts.length),
+                child: _OrbitCenter(count: visible.length),
               ),
               for (var index = 0; index < visible.length; index++)
                 Positioned(
@@ -46,7 +53,15 @@ class ThoughtOrbit extends StatelessWidget {
                   height: cardHeight,
                   child: _ThoughtOrbitCard(
                     thought: visible[index],
-                    onTap: () => onThoughtTap(visible[index]),
+                    expanded: _expandedId == visible[index].id,
+                    onTap: () {
+                      setState(() {
+                        _expandedId = _expandedId == visible[index].id
+                            ? null
+                            : visible[index].id;
+                      });
+                    },
+                    onOpen: () => widget.onThoughtTap(visible[index]),
                   ),
                 ),
             ],
@@ -56,25 +71,13 @@ class ThoughtOrbit extends StatelessWidget {
     );
   }
 
-  List<Offset> _anchors(int count) => switch (count) {
-    0 => const <Offset>[],
-    1 => const <Offset>[Offset(0.5, 0)],
-    2 => const <Offset>[Offset(0.02, 0.22), Offset(0.98, 0.22)],
-    3 => const <Offset>[Offset(0.5, 0), Offset(0.94, 0.73), Offset(0.06, 0.73)],
-    4 => const <Offset>[
-      Offset(0.5, 0),
-      Offset(1, 0.28),
-      Offset(0.82, 0.86),
-      Offset(0.04, 0.72),
-    ],
-    _ => const <Offset>[
-      Offset(0.5, 0),
-      Offset(1, 0.25),
-      Offset(0.86, 0.84),
-      Offset(0.06, 0.84),
-      Offset(0, 0.27),
-    ],
-  };
+  List<Offset> _anchors(int count) => [
+    for (var index = 0; index < count; index++)
+      Offset(
+        0.5 + math.cos(-math.pi / 2 + index * math.pi * 2 / count) * 0.43,
+        0.5 + math.sin(-math.pi / 2 + index * math.pi * 2 / count) * 0.40,
+      ),
+  ];
 }
 
 class _OrbitCenter extends StatelessWidget {
@@ -123,10 +126,17 @@ class _OrbitCenter extends StatelessWidget {
 }
 
 class _ThoughtOrbitCard extends StatelessWidget {
-  const _ThoughtOrbitCard({required this.thought, required this.onTap});
+  const _ThoughtOrbitCard({
+    required this.thought,
+    required this.expanded,
+    required this.onTap,
+    required this.onOpen,
+  });
 
   final Thought thought;
+  final bool expanded;
   final VoidCallback onTap;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +186,7 @@ class _ThoughtOrbitCard extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
-                    if (thought.detail.isNotEmpty) ...<Widget>[
+                    if (expanded && thought.detail.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 4),
                       Text(
                         thought.detail,
@@ -191,6 +201,13 @@ class _ThoughtOrbitCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (expanded)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Open thought',
+                  onPressed: onOpen,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+                ),
             ],
           ),
         ),

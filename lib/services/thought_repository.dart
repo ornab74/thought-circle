@@ -13,6 +13,23 @@ final class ThoughtRepository {
   static const String _chatKey = 'guide-chat';
   static const String _moodColorsKey = 'mood-colors';
   static const String _onboardingKey = 'onboarding-complete';
+  static const String _modelKey = 'local-guide-model';
+
+  Future<Map<String, Object?>?> loadModelMetadata() async {
+    final raw = await _vault.readJson(_namespace, _modelKey);
+    return raw is Map ? Map<String, Object?>.from(raw) : null;
+  }
+
+  Future<void> saveModelMetadata({
+    required String path,
+    required String sha256,
+  }) {
+    return _vault.writeJson(_namespace, _modelKey, <String, Object?>{
+      'path': path,
+      'sha256': sha256,
+      'verifiedAt': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
 
   Future<List<Thought>> load() async {
     final raw = await _vault.readJson(_namespace, _thoughtsKey);

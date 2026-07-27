@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -32,6 +33,8 @@ final class GemmaService {
   static const int _maximumModelBytes = 6 * 1024 * 1024 * 1024;
 
   InferenceModel? _model;
+  InferenceChat? _activeChat;
+  bool _cancelRequested = false;
   HttpClient? _activeDownloadClient;
   bool _pauseRequested = false;
   LocalAiState state = LocalAiState.unavailable;
@@ -59,6 +62,11 @@ final class GemmaService {
     final received = _formatBytes(downloadedBytes);
     if (totalDownloadBytes <= 0) return received;
     return '$received of ${_formatBytes(totalDownloadBytes)}';
+  }
+
+  Future<String> get installedModelPath async {
+    final directory = await getApplicationSupportDirectory();
+    return '${directory.path}/models/$modelFileName';
   }
 
   Future<void> initialize() async {
@@ -123,10 +131,10 @@ final class GemmaService {
     _pauseRequested = false;
     error = null;
     state = LocalAiState.downloading;
-    status = downloadedBytes > 0 ? 'Resuming Gemma…' : 'Downloading Gemma…';
     downloadedBytes = await files.partial.exists()
         ? await files.partial.length()
         : 0;
+    status = downloadedBytes > 0 ? 'Resuming Gemma…' : 'Downloading Gemma…';
     installProgress = totalDownloadBytes > 0
         ? downloadedBytes / totalDownloadBytes
         : 0;
@@ -152,7 +160,12 @@ final class GemmaService {
           HttpHeaders.rangeHeader,
           'bytes=$downloadedBytes-$end',
         );
-        final response = await request.close();
+        final response = await request.close().timeout(
+          const Duration(seconds: 90),
+          onTimeout: () => throw TimeoutException(
+            'The model server took too long to respond.',
+          ),
+        );
 
         if (response.statusCode == HttpStatus.requestedRangeNotSatisfiable &&
             totalDownloadBytes > 0 &&
@@ -171,6 +184,7 @@ final class GemmaService {
           downloadedBytes = 0;
         }
 
+        final serverSentFullFile = response.statusCode == HttpStatus.ok;
         totalDownloadBytes = _totalBytesFrom(response, downloadedBytes);
         if (totalDownloadBytes > _maximumModelBytes) {
           throw FileSystemException(
@@ -181,7 +195,11 @@ final class GemmaService {
 
         final output = files.partial.openWrite(mode: FileMode.append);
         try {
-          await for (final chunk in response) {
+          await for (final chunk in response.timeout(
+            const Duration(seconds: 90),
+            onTimeout: (sink) =>
+                sink.addError(TimeoutException('The model download stalled.')),
+          )) {
             if (_pauseRequested) break;
             output.add(chunk);
             downloadedBytes += chunk.length;
@@ -197,6 +215,16 @@ final class GemmaService {
           await output.close();
         }
         await _saveDownloadState(files.stateFile);
+
+        // Some mirrors ignore Range and return the complete file with 200.
+        // It is already fully written, so do not request another range and
+        // repeatedly truncate the partial file.
+        if (serverSentFullFile) {
+          totalDownloadBytes = downloadedBytes;
+          installProgress = 1;
+          onProgress?.call();
+          break;
+        }
       }
 
       if (_pauseRequested) {
@@ -483,6 +511,7 @@ final class GemmaService {
     required GuideMode mode,
     required List<Thought> circle,
     required List<MoodColorEntry> moodColors,
+    void Function(String token)? onToken,
   }) async {
     final model = _requireModel();
     state = LocalAiState.working;
@@ -490,6 +519,7 @@ final class GemmaService {
     error = null;
     InferenceChat? chat;
     try {
+      _cancelRequested = false;
       final prompt = _rollingGuidePrompt(
         history,
         message,
@@ -510,8 +540,12 @@ final class GemmaService {
         randomSeed: 19,
         isThinking: false,
       );
+      _activeChat = chat;
       await chat.addQueryChunk(Message.text(text: prompt, isUser: true));
-      final raw = await _collect(chat);
+      final raw = await _collect(chat, onToken: onToken);
+      if (_cancelRequested) {
+        throw const _GenerationCancelled();
+      }
       final text = _clean(raw, 1300);
       state = LocalAiState.ready;
       status = 'Gemma is ready.';
@@ -528,8 +562,16 @@ final class GemmaService {
       );
       rethrow;
     } finally {
+      if (identical(_activeChat, chat)) _activeChat = null;
       await chat?.close();
     }
+  }
+
+  Future<void> cancelCurrentGeneration() async {
+    _cancelRequested = true;
+    final chat = _activeChat;
+    _activeChat = null;
+    await chat?.close();
   }
 
   Future<void> close() async {
@@ -547,10 +589,16 @@ final class GemmaService {
     return model;
   }
 
-  Future<String> _collect(InferenceChat chat) async {
+  Future<String> _collect(
+    InferenceChat chat, {
+    void Function(String token)? onToken,
+  }) async {
     final output = StringBuffer();
     await for (final response in chat.generateChatResponseAsync()) {
-      if (response is TextResponse) output.write(response.token);
+      if (response is TextResponse) {
+        output.write(response.token);
+        onToken?.call(response.token);
+      }
     }
     return output.toString();
   }
@@ -582,6 +630,7 @@ Return JSON only:
   "highlights": ["short point", "short point", "short point"],
   "circleMatch": "exact active circle title or empty"
 }
+
 ''';
   }
 
@@ -952,4 +1001,8 @@ ThoughtPlan starterPlanFor(Thought thought) {
     ],
     createdAt: DateTime.now(),
   );
+}
+
+final class _GenerationCancelled implements Exception {
+  const _GenerationCancelled();
 }
