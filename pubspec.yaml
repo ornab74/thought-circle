@@ -1,7 +1,7 @@
 name: thought_circle
 description: A calm, private Flutter app for turning looping thoughts into small next steps with on-device Gemma.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ^3.12.0
