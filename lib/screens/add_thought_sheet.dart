@@ -94,7 +94,14 @@ class _AddThoughtSheetState extends State<_AddThoughtSheet> {
               maxLength: 120,
               decoration: const InputDecoration(
                 labelText: 'Thought',
-                hintText: 'I need to organize my room',
+                hintText: 'AI is not useful >>> I may be prompting poorly >>> AI is not useful',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tip: use >>> between thoughts to map the full loop.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: ThoughtCircleColors.muted,
               ),
             ),
             const SizedBox(height: 10),
@@ -106,7 +113,7 @@ class _AddThoughtSheetState extends State<_AddThoughtSheet> {
               maxLength: 420,
               decoration: const InputDecoration(
                 labelText: 'More (optional)',
-                hintText: 'It feels overwhelming.',
+                hintText: 'Add facts, context, or what keeps linking the thoughts together.',
                 alignLabelWithHint: true,
               ),
             ),

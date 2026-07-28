@@ -6,6 +6,8 @@ enum ThoughtKind { body, home, worry, work, people, other }
 
 enum ThoughtState { active, settled, archived }
 
+enum ThoughtVerdict { unreviewed, valid, partlyValid, uncertain, closedForNow }
+
 final class ThoughtStep {
   final String id;
   final String title;
@@ -48,6 +50,12 @@ final class ThoughtStep {
 final class ThoughtPlan {
   final String understanding;
   final String support;
+  final List<String> loopNodes;
+  final String validSignal;
+  final String uncertainty;
+  final List<String> constructiveCycle;
+  final String experiment;
+  final String closureRule;
   final List<ThoughtStep> steps;
   final List<String> helpfulActions;
   final DateTime createdAt;
@@ -55,14 +63,54 @@ final class ThoughtPlan {
   const ThoughtPlan({
     required this.understanding,
     required this.support,
+    this.loopNodes = const <String>[],
+    this.validSignal = '',
+    this.uncertainty = '',
+    this.constructiveCycle = const <String>[],
+    this.experiment = '',
+    this.closureRule = '',
     required this.steps,
     required this.helpfulActions,
     required this.createdAt,
   });
 
+  ThoughtPlan copyWith({
+    String? understanding,
+    String? support,
+    List<String>? loopNodes,
+    String? validSignal,
+    String? uncertainty,
+    List<String>? constructiveCycle,
+    String? experiment,
+    String? closureRule,
+    List<ThoughtStep>? steps,
+    List<String>? helpfulActions,
+    DateTime? createdAt,
+  }) {
+    return ThoughtPlan(
+      understanding: understanding ?? this.understanding,
+      support: support ?? this.support,
+      loopNodes: loopNodes ?? this.loopNodes,
+      validSignal: validSignal ?? this.validSignal,
+      uncertainty: uncertainty ?? this.uncertainty,
+      constructiveCycle: constructiveCycle ?? this.constructiveCycle,
+      experiment: experiment ?? this.experiment,
+      closureRule: closureRule ?? this.closureRule,
+      steps: steps ?? this.steps,
+      helpfulActions: helpfulActions ?? this.helpfulActions,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'understanding': understanding,
     'support': support,
+    'loopNodes': loopNodes,
+    'validSignal': validSignal,
+    'uncertainty': uncertainty,
+    'constructiveCycle': constructiveCycle,
+    'experiment': experiment,
+    'closureRule': closureRule,
     'steps': steps.map((step) => step.toJson()).toList(growable: false),
     'helpfulActions': helpfulActions,
     'createdAt': createdAt.toUtc().toIso8601String(),
@@ -74,6 +122,15 @@ final class ThoughtPlan {
     return ThoughtPlan(
       understanding: json['understanding']?.toString() ?? '',
       support: json['support']?.toString() ?? '',
+      loopNodes: _stringList(json['loopNodes'], maxItems: 8),
+      validSignal: json['validSignal']?.toString() ?? '',
+      uncertainty: json['uncertainty']?.toString() ?? '',
+      constructiveCycle: _stringList(
+        json['constructiveCycle'],
+        maxItems: 8,
+      ),
+      experiment: json['experiment']?.toString() ?? '',
+      closureRule: json['closureRule']?.toString() ?? '',
       steps: rawSteps is List
           ? rawSteps
                 .whereType<Map>()
@@ -91,6 +148,15 @@ final class ThoughtPlan {
           DateTime.now(),
     );
   }
+
+  static List<String> _stringList(Object? raw, {required int maxItems}) {
+    if (raw is! List) return const <String>[];
+    return raw
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .take(maxItems)
+        .toList(growable: false);
+  }
 }
 
 final class Thought {
@@ -99,6 +165,7 @@ final class Thought {
   final String detail;
   final ThoughtKind kind;
   final ThoughtState state;
+  final ThoughtVerdict verdict;
   final DateTime createdAt;
   final DateTime updatedAt;
   final ThoughtPlan? plan;
@@ -109,6 +176,7 @@ final class Thought {
     required this.detail,
     required this.kind,
     required this.state,
+    this.verdict = ThoughtVerdict.unreviewed,
     required this.createdAt,
     required this.updatedAt,
     this.plan,
@@ -119,6 +187,7 @@ final class Thought {
     String? detail,
     ThoughtKind? kind,
     ThoughtState? state,
+    ThoughtVerdict? verdict,
     DateTime? updatedAt,
     ThoughtPlan? plan,
     bool clearPlan = false,
@@ -129,6 +198,7 @@ final class Thought {
       detail: detail ?? this.detail,
       kind: kind ?? this.kind,
       state: state ?? this.state,
+      verdict: verdict ?? this.verdict,
       createdAt: createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
       plan: clearPlan ? null : (plan ?? this.plan),
@@ -159,6 +229,7 @@ final class Thought {
     'detail': detail,
     'kind': kind.name,
     'state': state.name,
+    'verdict': verdict.name,
     'createdAt': createdAt.toUtc().toIso8601String(),
     'updatedAt': updatedAt.toUtc().toIso8601String(),
     'plan': plan?.toJson(),
@@ -177,6 +248,10 @@ final class Thought {
       state: ThoughtState.values.firstWhere(
         (item) => item.name == json['state']?.toString(),
         orElse: () => ThoughtState.active,
+      ),
+      verdict: ThoughtVerdict.values.firstWhere(
+        (item) => item.name == json['verdict']?.toString(),
+        orElse: () => ThoughtVerdict.unreviewed,
       ),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??

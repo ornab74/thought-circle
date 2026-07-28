@@ -60,3 +60,17 @@ The first build does not claim protection against:
 ## Reporting
 
 Do not post private thought data, passwords, keys, or model files in a public issue. Report reproducible security problems with redacted sample data.
+
+## Read-only project mapper
+
+The desktop project mapper is designed for structural inspection only.
+
+- It never executes, imports, compiles, or launches repository code.
+- It uses `Directory.list` with symbolic-link following disabled.
+- It skips dependency, VCS, IDE, coverage, and build-output directories.
+- It records relative file paths, file sizes, top-level entries, and extension-based language counts; it does not read source-file contents.
+- It stops after 2,500 files or 64 MB of indexed file sizes.
+- The generated map is placed into the Guide composer for user review before it is sent to the on-device model.
+- The absolute selected path is not inserted into the guide prompt.
+
+Treat unknown repositories as untrusted even though the mapper does not execute them. Do not manually run scripts or binaries from a repository unless you have reviewed and sandboxed them separately.
