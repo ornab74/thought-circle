@@ -1,5 +1,6 @@
-import '../models/thought.dart';
+import '../models/orbital_workspace.dart';
 import '../models/reflection.dart';
+import '../models/thought.dart';
 import 'vault_service.dart';
 
 final class ThoughtRepository {
@@ -14,6 +15,7 @@ final class ThoughtRepository {
   static const String _moodColorsKey = 'mood-colors';
   static const String _onboardingKey = 'onboarding-complete';
   static const String _modelKey = 'local-guide-model';
+  static const String _orbitalWorkspaceKey = 'orbital-workspace-v1';
 
   Future<Map<String, Object?>?> loadModelMetadata() async {
     final raw = await _vault.readJson(_namespace, _modelKey);
@@ -46,6 +48,20 @@ final class ThoughtRepository {
       _namespace,
       _thoughtsKey,
       thoughts.map((item) => item.toJson()).toList(growable: false),
+    );
+  }
+
+  Future<OrbitalWorkspace> loadOrbitalWorkspace() async {
+    final raw = await _vault.readJson(_namespace, _orbitalWorkspaceKey);
+    if (raw is! Map) return const OrbitalWorkspace();
+    return OrbitalWorkspace.fromJson(Map<String, Object?>.from(raw));
+  }
+
+  Future<void> saveOrbitalWorkspace(OrbitalWorkspace workspace) {
+    return _vault.writeJson(
+      _namespace,
+      _orbitalWorkspaceKey,
+      workspace.toJson(),
     );
   }
 
