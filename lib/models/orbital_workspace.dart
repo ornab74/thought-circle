@@ -78,7 +78,7 @@ final class OrbitalWorkspace {
   final List<OrbitalMoon> moons;
 
   int ringFor(String thoughtId, {int fallback = 0}) {
-    return (ringByThoughtId[thoughtId] ?? fallback).clamp(0, 2);
+    return (ringByThoughtId[thoughtId] ?? fallback).clamp(0, 2).toInt();
   }
 
   List<OrbitalMoon> moonsFor(String thoughtId) {
@@ -92,7 +92,7 @@ final class OrbitalWorkspace {
       schemaVersion: schemaVersion,
       ringByThoughtId: <String, int>{
         ...ringByThoughtId,
-        thoughtId: ringIndex.clamp(0, 2),
+        thoughtId: ringIndex.clamp(0, 2).toInt(),
       },
       moons: moons,
     );
@@ -159,8 +159,9 @@ final class OrbitalWorkspace {
       ringByThoughtId: rawRings is Map
           ? <String, int>{
               for (final entry in rawRings.entries)
-                entry.key.toString():
-                    (int.tryParse(entry.value.toString()) ?? 0).clamp(0, 2),
+                entry.key.toString(): (int.tryParse(entry.value.toString()) ?? 0)
+                    .clamp(0, 2)
+                    .toInt(),
             }
           : const <String, int>{},
       moons: rawMoons is List
